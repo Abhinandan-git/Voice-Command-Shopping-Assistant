@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Including all the routers
+from routers.nlp_router import router as nlp_router
+from routers.auth_router import router as auth_router
+
 # Connection function from utilities
 from utils.database import connect_to_database
 
@@ -25,3 +29,6 @@ try:
 except Exception as err:
 	print("No mongo instance found.")
 	exit(1)
+
+app.include_router(nlp_router)
+app.include_router(auth_router)
