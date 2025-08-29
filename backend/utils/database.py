@@ -1,4 +1,5 @@
-from typing import Optional, Dict, List
+from typing import Optional, Dict
+from bson.objectid import ObjectId
 
 from pydantic import BaseModel
 
@@ -30,8 +31,9 @@ def connect_to_database() -> Optional[MongoClient]:
 	except (InvalidURI, ConnectionFailure) as e:
 		print(e)
 
-def register_user(email: str, username: str, password: str) -> None:
-	inserted_document = client.VoiceCommand.users.insert_one({"email": email, "name": username, "password": password, "items": []})
+def register_user(email: str, username: str, password: str) -> Dict[str, str]:
+	inserted_document = client.VoiceCommand.users.insert_one({"email": email, "name": username, "password": password})
+	return {"user_id": str(inserted_document.inserted_id)}
 
 def get_user(email: Optional[str], username: str) -> Optional[dict[str, str]]:
 	if email:
