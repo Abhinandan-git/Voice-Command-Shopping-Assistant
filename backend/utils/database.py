@@ -3,8 +3,10 @@ from bson.objectid import ObjectId
 
 from pydantic import BaseModel
 
-from pymongo import MongoClient
+from pymongo import MongoClient, CursorType
 from pymongo.errors import InvalidURI, ConnectionFailure
+
+from bson.objectid import ObjectId
 
 # Import environment variables
 from dotenv import load_dotenv
@@ -39,3 +41,26 @@ def get_user(email: Optional[str], username: str) -> Optional[dict[str, str]]:
 	else:
 		stored_user = client.VoiceCommand.users.find_one({"name": username})
 	return stored_user
+
+def get_items() -> List[Dict[str, str | int | bool | List[str]]]:
+	items = client.VoiceCommand.products.find()
+	item_list = []
+
+	for item in items:
+		print(item)
+		item_list.append({
+			"id": str(item["_id"]),
+			"name": item["name"],
+			"category": item["category"],
+			"price": item["price"],
+			"seasonal": item["seasonal"],
+			"alternatives": item["alternatives"]
+		})
+
+	return item_list
+
+def get_user_userid(user_id: str):
+	return client.VoiceCommand.users.find_one({"_id": ObjectId(user_id)})
+
+def update_user(user):
+	return client.VoiceCommand.users.update_one({"_id": user["_id"]}, {"$set": {"items": user["items"]}})
