@@ -39,5 +39,16 @@ def normalize_action(action: str) -> Optional[str]:
 		if action in synonyms:
 			return key
 
-def convert_to_action(command: str) -> Dict[str, object]:
-	return {"method": {}, "url": {}, "payload": {}}
+def map_command(command: List[str]) -> Dict[str, str | Dict[str, str]]:
+	method = "POST" if command[0] == "add" else "DELETE"
+
+	return {"method": method, "url": f"/list{'/:id' if method == 'DELETE' else ''}", "payload": {command[2]: command[1]}}
+
+def convert_to_action(command: str) -> Dict[str, str | Dict[str, str]]:
+	generated_command = generate_tokens(command.strip().lower())
+
+	normalized_action = normalize_action(generated_command[0])
+
+	generated_command[0] = normalized_action if normalized_action else generated_command[0]
+
+	return map_command(generated_command)
