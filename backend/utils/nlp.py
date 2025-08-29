@@ -2,6 +2,8 @@ import spacy
 
 from typing import List, Optional, Dict
 
+from utils.database import get_item_ids
+
 # Load in the english model
 nlp = spacy.load("en_core_web_sm")
 
@@ -52,3 +54,10 @@ def convert_to_action(command: str) -> Dict[str, str | Dict[str, str]]:
 	generated_command[0] = normalized_action if normalized_action else generated_command[0]
 
 	return map_command(generated_command)
+
+def get_item_id(payload) -> str:
+	items = get_item_ids()
+	for item in items:
+		if item["name"].lower() in payload.keys():
+			return str(item["_id"])
+	return ""
