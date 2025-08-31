@@ -16,4 +16,3 @@ export const addItem = async (user_id: string, item: string): Promise<IItem> => 
 	})
 	const newItem = await res.json();
 	return newItem;
-}
