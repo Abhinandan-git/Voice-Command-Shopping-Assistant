@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Voice Command Shopping Assistant (Next.js 14, App Router)
 
-## Getting Started
+A voice-first shopping list manager with smart suggestions, multilingual voice input, and voice-activated product search.
 
-First, run the development server:
+## Features
+
+- 🎙️ **Voice Input (Web Speech API)** — add/remove/modify items, list and voice search
+- 🌐 **Multilingual** — easily switch recognition language (en-US, en-IN, hi-IN, es-ES, fr-FR)
+- 🧠 **NLP** — simple rule-based parser for add/remove/modify/search/quantity
+- 🧾 **Shopping List** — local persistence via `localStorage`, categories & quantities
+- 💡 **Smart Suggestions** — based on your recent history and current seasonal produce
+- 🔎 **Voice Search** — local product dataset with filters (`under $X`, `by BRAND`)
+- ♿ **A11y** — semantic buttons/labels, keyboard-friendly
+- 🚀 **Ready for Vercel** — zero config deploy
+
+## Local Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm i   # or npm i / yarn
+pnpm dev # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy to Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Push to GitHub, import in Vercel, and deploy.
+- No env vars required by default.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> Optional: If you want cloud-based NLP or embeddings, add your API keys as Vercel Environment Variables and extend `lib/nlp.ts` or `/app/api/*` routes.
 
-## Learn More
+## Tech
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js 14 (App Router), TypeScript, Tailwind, Zustand
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 200-word approach
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This app focuses on **reliability** and **low-latency** by keeping the core loop entirely in the browser. Voice input uses the Web Speech API with a minimal, resilient UI. A **rule-based NLP** parser (`lib/nlp.ts`) translates common phrasings into intents: add, remove, modify, list, and search; it extracts quantities from numerals and words (e.g., “two”). Smart suggestions combine **recency** (user history stored locally) with **seasonal items** keyed to the current month. Items are auto-categorized using a lightweight map and rendered in a clear, touch-friendly list with quantity controls. Voice search queries a bundled product dataset via a **serverless API route** (`/api/search`) with brand and price filters (e.g., “under $5”). The state layer uses **Zustand** and persists to `localStorage` for instant, offline-friendly behavior. The UI employs Tailwind for a clean, mobile-first layout and accessibility-first semantics. The project is **production ready for Vercel** with strict TypeScript, sensible headers, and no required secrets. It is easy to extend with real catalogs, sales feeds, or LLM-powered suggestions, while keeping the default stack simple, dependency-light, and fast.

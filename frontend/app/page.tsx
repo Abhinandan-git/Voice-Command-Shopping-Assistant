@@ -1,234 +1,203 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useStore } from '@/store/useStore';
+import { parseCommand } from '@/lib/nlp';
+import { categories, substitutes, seasonalByMonth } from '@/lib/data';
+import { Mic, Trash2, Sparkles, Search, Languages } from 'lucide-react';
 
-// Define the structure of a shopping item
-interface ShoppingItem {
-  id: string;
-  name: string;
-  quantity: number;
-  category: string;
-}
+type SpeechRecognitionType = typeof window extends any ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : any;
 
-// A simple function to guess the category of an item
-const getCategory = (item: string): string => {
-  const lowerItem = item.toLowerCase();
-  if (/\b(milk|cheese|yogurt|butter)\b/.test(lowerItem)) return 'Dairy';
-  if (/\b(apple|banana|orange|berries|lettuce|carrot)\b/.test(lowerItem)) return 'Produce';
-  if (/\b(bread|baguette|croissant)\b/.test(lowerItem)) return 'Bakery';
-  if (/\b(chicken|beef|fish)\b/.test(lowerItem)) return 'Meat';
-  if (/\b(cereal|chips|cookies|snacks)\b/.test(lowerItem)) return 'Snacks';
-  return 'General';
-};
-
-// Main component for the Home Page
 export default function HomePage() {
-  const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [feedback, setFeedback] = useState('Click the mic and start talking.');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const { items, addItem, removeItem, setQuantity, load, history } = useStore();
+  const [listening, setListening] = useState(false);
+  const [lang, setLang] = useState<string>('en-US');
+  const [log, setLog] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const recognitionRef = useRef<any>(null);
 
-  // Fetch initial shopping list from the server
-  const fetchItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/items');
-      if (!response.ok) throw new Error('Failed to fetch items.');
-      const data: ShoppingItem[] = await response.json();
-      setItems(data);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-  
-  // Setup the Web Speech API for voice recognition
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setFeedback('Sorry, your browser does not support voice recognition.');
+    if (typeof window === 'undefined') return;
+    const SR: any = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SR) return;
+    const recog = new SR();
+    recog.continuous = false;
+    recog.lang = lang;
+    recog.interimResults = false;
+    recog.onresult = (e: any) => {
+      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(' ');
+      handleVoice(transcript);
+    };
+    recog.onend = () => setListening(false);
+    recognitionRef.current = recog;
+  }, [lang]);
+
+  const handleVoice = async (input: string) => {
+    setLog(l => [`“${input}”`, ...l].slice(0, 10));
+    const cmd = parseCommand(input);
+
+    if (cmd.intent === 'add') {
+      const name = cmd.item.trim() || 'item';
+      const category = categories[name as keyof typeof categories];
+      addItem(name, cmd.quantity ?? 1, category);
+    } else if (cmd.intent === 'remove') {
+      const name = cmd.item.trim();
+      if (name) removeItem(name);
+    } else if (cmd.intent === 'modify') {
+      if (cmd.item) setQuantity(cmd.item.trim(), cmd.quantity);
+    } else if (cmd.intent === 'search') {
+      // simple client-side search using bundled products
+      const res = await fetch('/api/search?term=' + encodeURIComponent(cmd.term)
+        + (cmd.maxPrice ? `&max=${cmd.maxPrice}` : '')
+        + (cmd.brand ? `&brand=${encodeURIComponent(cmd.brand)}` : ''));
+      const data = await res.json();
+      setSearchResults(data.results);
+    } else if (cmd.intent === 'list') {
+      // no-op, list is visible
+    }
+  };
+
+  const toggle = () => {
+    const recog = recognitionRef.current;
+    if (!recog) {
+      alert('SpeechRecognition not supported in this browser.');
       return;
     }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setFeedback('Listening...');
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      setFeedback('Click the mic and start talking.');
-    };
-
-    recognition.onerror = (event: any) => {
-      setError(`Speech recognition error: ${event.error}`);
-    };
-
-    recognition.onresult = (event: any) => {
-      const currentTranscript = event.results[0][0].transcript;
-      setTranscript(currentTranscript);
-      parseCommand(currentTranscript);
-    };
-
-    recognitionRef.current = recognition;
-  }, []);
-
-  // Function to add an item via API call
-  const handleAddItem = async (name: string, quantity: number) => {
-    try {
-      const newItem: Omit<ShoppingItem, 'id'> = {
-        name,
-        quantity,
-        category: getCategory(name),
-      };
-      
-      const response = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newItem),
-      });
-
-      if (!response.ok) throw new Error('Failed to add item.');
-      
-      setFeedback(`Added ${quantity} ${name}.`);
-      fetchItems(); // Refresh list
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  // Function to remove an item via API call
-  const handleRemoveItem = async (id: string, name: string) => {
-    try {
-      const response = await fetch(`/api/items/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to remove item.');
-      
-      setFeedback(`Removed ${name}.`);
-      fetchItems(); // Refresh list
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-  
-  // Simple NLP to parse voice commands using regex
-  const parseCommand = (command: string) => {
-    const commandLower = command.toLowerCase();
-
-    // Regex for adding items (e.g., "Add 5 apples")
-    const addRegex = /^(add|buy|get)\s*(\d+)?\s*(.+)/i;
-    const addMatch = commandLower.match(addRegex);
-
-    if (addMatch) {
-      const quantity = parseInt(addMatch[2] || '1', 10);
-      const itemName = addMatch[3].replace(/s$/, ''); // Simple plural removal
-      handleAddItem(itemName, quantity);
-      return;
-    }
-    
-    // Regex for removing items (e.g., "Remove milk from the list")
-    const removeRegex = /^remove\s*(.+?)(?:\s+from my list)?$/i;
-    const removeMatch = commandLower.match(removeRegex);
-
-    if (removeMatch) {
-        const itemName = removeMatch[1].trim();
-        const itemToRemove = items.find(item => item.name.toLowerCase() === itemName);
-        if (itemToRemove) {
-            handleRemoveItem(itemToRemove.id, itemToRemove.name);
-        } else {
-            setFeedback(`Could not find "${itemName}" in your list.`);
-        }
-        return;
-    }
-
-    setFeedback(`Sorry, I didn't understand "${command}".`);
-  };
-
-  // Toggle listening state
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
+    if (listening) {
+      recog.stop();
+      setListening(false);
     } else {
-      recognitionRef.current?.start();
+      recog.lang = lang;
+      recog.start();
+      setListening(true);
     }
   };
-  
-  // Group items by category for rendering
-  const groupedItems = items.reduce((acc, item) => {
-    (acc[item.category] = acc[item.category] || []).push(item);
-    return acc;
-  }, {} as Record<string, ShoppingItem[]>);
+
+  const month = new Date().getMonth() + 1;
+  const seasonal = seasonalByMonth[month] || [];
+
+  const suggestFromHistory = history.slice(0, 5).filter(h => !items.find(i => i.name.toLowerCase() === h.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
-      <main className="max-w-2xl mx-auto p-4 sm:p-6">
-        <header className="text-center mb-6">
-          <h1 className="text-4xl font-bold text-gray-900">Shopping Assistant</h1>
-          <p className="text-gray-600 mt-2">{feedback}</p>
-        </header>
-
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4">{error}</div>}
-        {transcript && <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md mb-4">You said: "{transcript}"</div>}
-
-        <div className="bg-white rounded-lg shadow-md p-6 min-h-[300px]">
-          {loading ? (
-            <div className="flex justify-center items-center h-full">
-              <p>Loading your list...</p>
-            </div>
-          ) : Object.keys(groupedItems).length === 0 ? (
-            <p className="text-center text-gray-500">Your shopping list is empty.</p>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(groupedItems).map(([category, itemsInCategory]) => (
-                <div key={category}>
-                  <h2 className="text-xl font-semibold border-b pb-2 mb-3 text-gray-700">{category}</h2>
-                  <ul className="space-y-2">
-                    {itemsInCategory.map(item => (
-                      <li key={item.id} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-100 transition-colors">
-                        <span className="capitalize">{item.name} - <span className="font-medium">{item.quantity}</span></span>
-                        <button 
-                          onClick={() => handleRemoveItem(item.id, item.name)}
-                          className="text-red-500 hover:text-red-700 font-bold text-xl"
-                          aria-label={`Remove ${item.name}`}
-                        >
-                          &times;
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Voice Command Button */}
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2">
+    <main className="space-y-6">
+      <header className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">🛒 Voice Shopping Assistant</h1>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm opacity-80">
+            <Languages size={16} />
+            <select
+              className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1"
+              value={lang}
+              onChange={e => setLang(e.target.value)}
+              title="Recognition language"
+            >
+              <option value="en-US">English (US)</option>
+              <option value="en-IN">English (India)</option>
+              <option value="hi-IN">Hindi (भारत)</option>
+              <option value="es-ES">Español (ES)</option>
+              <option value="fr-FR">Français</option>
+            </select>
+          </label>
           <button
-            onClick={toggleListening}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg
-              ${isListening ? 'bg-red-500 animate-pulse' : 'bg-blue-500 hover:bg-blue-600'}`}
+            onClick={toggle}
+            className={`rounded-2xl px-3 py-2 border flex items-center gap-2 ${listening ? 'border-green-500' : 'border-neutral-700'}`}
+            aria-pressed={listening}
           >
-            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4zM5 4a5 5 0 00-5 5v1a5 5 0 005 5h10a5 5 0 005-5V9a5 5 0 00-5-5H5z" />
-            </svg>
+            <Mic className={listening ? 'animate-pulse' : ''} size={16} />
+            {listening ? 'Listening…' : 'Start Voice'}
           </button>
         </div>
-      </main>
-    </div>
+      </header>
+
+      <section className="grid md:grid-cols-2 gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Shopping List</h2>
+            <button
+              onClick={() => { if (confirm('Clear all items?')) location.reload(); }}
+              className="text-xs opacity-70 hover:opacity-100 flex items-center gap-1"
+              title="Reload to clear local state"
+            >
+              <Trash2 size={14} /> Reset
+            </button>
+          </div>
+          <ul className="space-y-2">
+            {items.map(i => (
+              <li key={i.id} className="flex items-center justify-between bg-neutral-800 rounded-xl px-3 py-2">
+                <div>
+                  <div className="font-medium capitalize">{i.name}</div>
+                  <div className="text-xs opacity-70">
+                    Qty: {i.quantity} {i.category ? `• ${i.category}` : ''}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={i.quantity}
+                    onChange={e => setQuantity(i.name, Math.max(1, Number(e.target.value)))}
+                    className="w-16 bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-sm"
+                    aria-label={`Set quantity for ${i.name}`}
+                  />
+                  <button onClick={() => removeItem(i.name)} className="text-sm underline">Remove</button>
+                </div>
+              </li>
+            ))}
+            {items.length === 0 && (
+              <li className="text-sm opacity-70">Say “Add milk” or “Add two apples”.</li>
+            )}
+          </ul>
+        </div>
+
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2"><Sparkles size={16}/> Smart Suggestions</h2>
+          <div className="text-sm opacity-80">Tap to add</div>
+          <div className="flex flex-wrap gap-2">
+            {suggestFromHistory.map(s => (
+              <button key={s} onClick={() => addItem(s, 1)} className="px-3 py-1 rounded-full border border-neutral-700 text-sm">
+                {s}
+              </button>
+            ))}
+            {seasonal.map(s => (
+              <button key={s} onClick={() => addItem(s, 1, 'produce')} className="px-3 py-1 rounded-full border border-neutral-700 text-sm">
+                {s} (seasonal)
+              </button>
+            ))}
+          </div>
+          <div className="text-xs opacity-70">
+            Substitutes example: try saying “Add milk” and we might suggest almond milk.
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold flex items-center gap-2"><Search size={16}/> Voice-Activated Search</h2>
+        <div className="text-sm opacity-80">Say “Find organic apples under 5 dollars” or “Find toothpaste under 5”.</div>
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {searchResults.map(p => (
+            <div key={p.id} className="rounded-xl border border-neutral-800 p-3">
+              <div className="font-medium">{p.name}</div>
+              <div className="text-xs opacity-70">{p.brand} • {p.category}</div>
+              <div className="mt-1 text-sm">${p.price} / {p.unit}</div>
+              <button onClick={() => addItem(p.name, 1, p.category)} className="mt-2 text-sm underline">Add</button>
+            </div>
+          ))}
+          {searchResults.length === 0 && <div className="text-sm opacity-70">No results yet. Try a voice search.</div>}
+        </div>
+      </section>
+
+      <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 space-y-2">
+        <h3 className="font-semibold">Recent voice</h3>
+        <ul className="text-sm opacity-80 list-disc pl-5">
+          {log.map((l, i) => <li key={i}>{l}</li>)}
+        </ul>
+      </section>
+
+      <footer className="opacity-60 text-xs">
+        Works offline in your browser storage. Speech recognition depends on your browser (best on Chrome). 
+      </footer>
+    </main>
   );
 }

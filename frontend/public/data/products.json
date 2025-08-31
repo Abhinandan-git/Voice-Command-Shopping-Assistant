@@ -1,0 +1,66 @@
+[
+  {
+    "id": 1,
+    "name": "Organic Apples",
+    "brand": "Farm Fresh",
+    "category": "produce",
+    "price": 3.99,
+    "unit": "lb"
+  },
+  {
+    "id": 2,
+    "name": "Milk 2%",
+    "brand": "DairyPure",
+    "category": "dairy",
+    "price": 2.49,
+    "unit": "half-gallon"
+  },
+  {
+    "id": 3,
+    "name": "Almond Milk Unsweetened",
+    "brand": "Silk",
+    "category": "dairy",
+    "price": 3.49,
+    "unit": "half-gallon"
+  },
+  {
+    "id": 4,
+    "name": "Whole Wheat Bread",
+    "brand": "Nature's Own",
+    "category": "bakery",
+    "price": 2.99,
+    "unit": "loaf"
+  },
+  {
+    "id": 5,
+    "name": "Bananas",
+    "brand": "Chiquita",
+    "category": "produce",
+    "price": 0.69,
+    "unit": "lb"
+  },
+  {
+    "id": 6,
+    "name": "Toothpaste",
+    "brand": "Colgate",
+    "category": "personal care",
+    "price": 4.49,
+    "unit": "tube"
+  },
+  {
+    "id": 7,
+    "name": "Bottled Water",
+    "brand": "Aquafina",
+    "category": "beverages",
+    "price": 5.99,
+    "unit": "24-pack"
+  },
+  {
+    "id": 8,
+    "name": "Eggs",
+    "brand": "Happy Hen",
+    "category": "dairy",
+    "price": 2.99,
+    "unit": "dozen"
+  }
+]
