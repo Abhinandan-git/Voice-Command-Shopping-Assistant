@@ -6,7 +6,15 @@ import { parseCommand } from '@/lib/nlp';
 import { categories, substitutes, seasonalByMonth } from '@/lib/data';
 import { Mic, Trash2, Sparkles, Search, Languages } from 'lucide-react';
 
-type SpeechRecognitionType = typeof window extends any ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : any;
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+// Optionally, you can define a type for SpeechRecognition if you want type safety, or just use 'any' for compatibility.
+type SpeechRecognitionType = typeof window extends { SpeechRecognition: any } ? InstanceType<typeof window.SpeechRecognition> : any;
 
 export default function HomePage() {
   const { items, addItem, removeItem, setQuantity, load, history } = useStore();
