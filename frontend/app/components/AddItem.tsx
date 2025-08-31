@@ -3,14 +3,17 @@
 import { AiOutlinePlus } from 'react-icons/ai'
 import Modal from './Modal'
 import { FormEvent, FormEventHandler, useState } from 'react';
+import { addItem } from '@/api';
 
 const AddItem = () => {
 	const [modalOpen, setModalOpen] = useState(false);
-	const [newTaskValue, setNewTaskValue] = useState("");
+	const [newItemValue, setNewItemValue] = useState("");
 
-	const handleSubmitNewItem: FormEventHandler<HTMLFormElement> = (evn) => {
+	const handleSubmitNewItem: FormEventHandler<HTMLFormElement> = async (evn) => {
 		evn.preventDefault();
-		setNewTaskValue("");
+		await addItem(document.cookie, newItemValue);
+		setNewItemValue("");
+		setModalOpen(false);
 	}
 
 	return (
@@ -23,7 +26,7 @@ const AddItem = () => {
 				<form onSubmit={handleSubmitNewItem}>
 					<h3 className="font-bold text-lg">Add new item</h3>
 					<div className="modal-action">
-						<input value={newTaskValue} onChange={e => setNewTaskValue(e.target.value)} type="text" placeholder="Type here" className="input" />
+						<input value={newItemValue} onChange={e => setNewItemValue(e.target.value)} type="text" placeholder="Type here" className="input w-full" />
 						<button type="submit" className="btn">Submit</button>
 					</div>
 				</form>
