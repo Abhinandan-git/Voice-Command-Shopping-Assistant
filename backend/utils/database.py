@@ -1,9 +1,7 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from bson.objectid import ObjectId
 
-from pydantic import BaseModel
-
-from pymongo import MongoClient, CursorType
+from pymongo import MongoClient
 from pymongo.errors import InvalidURI, ConnectionFailure
 
 from bson.objectid import ObjectId
@@ -65,3 +63,22 @@ def update_user(user):
 
 def get_item_ids():
 	return client.VoiceCommand.products.find({}, {"_id": 1, "name": 1})
+
+def get_items_by_user(user):
+	items = client.VoiceCommand.users.find({"_id": user["_id"]}, {"items": 1})
+	item_ids = [item["items"] for item in items][0]
+	item = [client.VoiceCommand.products.find({"_id": ObjectId(i)}) for i in item_ids]
+	items = [a for i in item for a in i]
+
+	item_list = []
+
+	for item in items:
+		item_list.append({
+			"id": str(item["_id"]),
+			"name": item["name"],
+			"category": item["category"],
+			"price": item["price"],
+			"seasonal": item["seasonal"]
+		})
+
+	return item_list
